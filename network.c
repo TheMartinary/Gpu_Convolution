@@ -47,6 +47,7 @@ BLOB* network(Network* net, BLOB* input){
                         layer_blobs[layer.input],
                         &(layer.param.conv)
                     );
+                    
                 break;
 
                 case ELTWISE:
@@ -71,14 +72,16 @@ BLOB* network(Network* net, BLOB* input){
                 break;
             }
 
-        )//end of timer wrapper
+        )
+        
+        //end of timer wrapper
 
         //store out in the blob holding structure to be used by future layers
         //NOTE: currently all blobs are stored until the network is fully evaluated,
         //with smarter management this storage could be reduced significantly
         if(out!=NULL)
             layer_blobs[l+1]=out;
-
+        //break;
         #ifdef DEBUG
         if(out){
             // Some example on how to use the blob IO routines
