@@ -4,4 +4,111 @@ Preprocessing image
 Preprocessing on GPU...
 bins/conv1_weights.bin
 Width : 112 , Height : 112 
-test : 0.000000 
+bins/conv2_1_expand_weights.bin
+Width : 112 , Height : 112 
+bins/conv2_1_dwise_weights.bin
+Width : 112 , Height : 112 
+bins/conv2_1_linear_weights.bin
+Width : 112 , Height : 112 
+bins/conv2_2_expand_weights.bin
+Width : 112 , Height : 112 
+bins/conv2_2_dwise_weights.bin
+Width : 56 , Height : 56 
+bins/conv2_2_linear_weights.bin
+Width : 56 , Height : 56 
+bins/conv3_1_expand_weights.bin
+Width : 56 , Height : 56 
+bins/conv3_1_dwise_weights.bin
+Width : 56 , Height : 56 
+bins/conv3_1_linear_weights.bin
+Width : 56 , Height : 56 
+bins/conv3_2_expand_weights.bin
+Width : 56 , Height : 56 
+bins/conv3_2_dwise_weights.bin
+Width : 28 , Height : 28 
+bins/conv3_2_linear_weights.bin
+Width : 28 , Height : 28 
+bins/conv4_1_expand_weights.bin
+Width : 28 , Height : 28 
+bins/conv4_1_dwise_weights.bin
+Width : 28 , Height : 28 
+bins/conv4_1_linear_weights.bin
+Width : 28 , Height : 28 
+bins/conv4_2_expand_weights.bin
+Width : 28 , Height : 28 
+bins/conv4_2_dwise_weights.bin
+Width : 28 , Height : 28 
+bins/conv4_2_linear_weights.bin
+Width : 28 , Height : 28 
+bins/conv4_3_expand_weights.bin
+Width : 28 , Height : 28 
+bins/conv4_3_dwise_weights.bin
+Width : 28 , Height : 28 
+bins/conv4_3_linear_weights.bin
+Width : 28 , Height : 28 
+bins/conv4_4_expand_weights.bin
+Width : 28 , Height : 28 
+bins/conv4_4_dwise_weights.bin
+Width : 28 , Height : 28 
+bins/conv4_4_linear_weights.bin
+Width : 28 , Height : 28 
+bins/conv4_5_expand_weights.bin
+Width : 28 , Height : 28 
+bins/conv4_5_dwise_weights.bin
+Width : 28 , Height : 28 
+bins/conv4_5_linear_weights.bin
+Width : 28 , Height : 28 
+bins/conv4_6_expand_weights.bin
+Width : 28 , Height : 28 
+bins/conv4_6_dwise_weights.bin
+Width : 28 , Height : 28 
+bins/conv4_6_linear_weights.bin
+Width : 28 , Height : 28 
+bins/conv4_7_expand_weights.bin
+Width : 28 , Height : 28 
+bins/conv4_7_dwise_weights.bin
+Width : 14 , Height : 14 
+bins/conv4_7_linear_weights.bin
+Width : 14 , Height : 14 
+bins/conv5_1_expand_weights.bin
+Width : 14 , Height : 14 
+bins/conv5_1_dwise_weights.bin
+Width : 14 , Height : 14 
+bins/conv5_1_linear_weights.bin
+Width : 14 , Height : 14 
+bins/conv5_2_expand_weights.bin
+Width : 14 , Height : 14 
+bins/conv5_2_dwise_weights.bin
+Width : 14 , Height : 14 
+bins/conv5_2_linear_weights.bin
+Width : 14 , Height : 14 
+bins/conv5_3_expand_weights.bin
+Width : 14 , Height : 14 
+bins/conv5_3_dwise_weights.bin
+Width : 7 , Height : 7 
+bins/conv5_3_linear_weights.bin
+Width : 7 , Height : 7 
+bins/conv6_1_expand_weights.bin
+Width : 7 , Height : 7 
+bins/conv6_1_dwise_weights.bin
+Width : 7 , Height : 7 
+bins/conv6_1_linear_weights.bin
+Width : 7 , Height : 7 
+bins/conv6_2_expand_weights.bin
+Width : 7 , Height : 7 
+bins/conv6_2_dwise_weights.bin
+Width : 7 , Height : 7 
+bins/conv6_2_linear_weights.bin
+Width : 7 , Height : 7 
+bins/conv6_3_expand_weights.bin
+Width : 7 , Height : 7 
+bins/conv6_3_dwise_weights.bin
+Width : 7 , Height : 7 
+bins/conv6_3_linear_weights.bin
+Width : 7 , Height : 7 
+bins/conv6_4_weights.bin
+Width : 7 , Height : 7 
+bins/fc7_weights.bin
+Width : 1 , Height : 1 
+Detected class: 281
+[0;33mRobot finds kitteh![0m
