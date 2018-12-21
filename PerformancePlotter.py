@@ -26,5 +26,6 @@ ax.set_ylabel('time(ms)')
 ax.set_title('Execution time per type')
 ax.set_xticks(ind)
 ax.set_xticklabels(suffixes)
-
+print("Total time : " + str(np.sum(times)/1000) + " ms")
 plt.show()
+

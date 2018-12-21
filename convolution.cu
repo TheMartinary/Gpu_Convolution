@@ -26,6 +26,18 @@ BLOB* pad(BLOB* in, int pad){
     return out;
 }
 
+int get_next_pow2(int v)
+{
+    v--;
+    v |= v >> 1;
+    v |= v >> 2;
+    v |= v >> 4;
+    v |= v >> 8;
+    v |= v >> 16;
+    v++;
+    return v;
+
+}
 
 BLOB* load_weights(BLOB* b, conv_param_t* conv_param){
 
@@ -58,6 +70,41 @@ BLOB* load_weights(BLOB* b, conv_param_t* conv_param){
     //return weight blob
     return w;
 }
+void convolve_cpu(BLOB* in,BLOB* out,BLOB* w,int Kx,int Ky, conv_param_t* conv_param)
+{
+    for(int group_id=0;group_id<conv_param->group;group_id++)
+            {
+            int delta = (out->d/conv_param->group);//Depth of output divided by number of groups. 
+            int output_starting_depth = group_id*delta;
+            for(int out_depth=output_starting_depth;out_depth< output_starting_depth + delta;out_depth++)
+                {
+                int delta = (in->d/conv_param->group);//Depth of input divided by number of groups. 
+                int in_depth_start = group_id*delta;
+                for(int in_depth=in_depth_start;in_depth<in_depth_start+delta;in_depth++)
+                    {
+                    for(int out_y=0;out_y<out->h;out_y++)
+                        for(int out_x=0;out_x<out->w;out_x++)
+                            for(int ky=0;ky<Ky;ky++)
+                                for(int kx=0;kx<Kx;kx++)
+                                {
+                                    int in_y = out_y*conv_param->Sy+ky;
+                                    int in_x = out_x*conv_param->Sx+kx;
+
+                                    int weigth_y = in_depth-(group_id*(in->d/conv_param->group));
+                                    int weigth_x = ky*Kx + kx;
+
+                                    float input = blob_data(in, in_depth, in_y,in_x);
+                                    float weight = blob_data(w, out_depth, weigth_y, weigth_x);
+                                     
+                                    blob_data(out,out_depth,out_y,out_x)+= input*weight; 
+                                }
+                    }
+                }
+            }          
+
+
+}
+
 
 float* load_1d(const char* fname, size_t num){
 
@@ -123,8 +170,8 @@ __global__ void gpu_device_convolve
     ,int Sx,int Sy // Sizes ...
     ,int in_w,int in_h,int in_d, // input blob dimensions
     int w_w,int w_h, // weigth height and depth
-    int out_w,int out_h, // 
-    int Ky,int Kx
+    int out_w,int out_h, // output width and height
+    int Ky,int Kx 
     ,int in_depth,int out_depth,
     int group_id,int group){
 
@@ -152,37 +199,70 @@ __global__ void gpu_device_convolve
     }
 }
 
-__global__ void out_test(float* data_out,int out_depth,blob_dims* dims)
-{
-    unsigned int out_x = blockIdx.x*blockDim.x + threadIdx.x;  
+
+__global__ void gpu_device_convolve_naive
+    (float* data_in,float * data_weight, float* data_out // Data
+    ,int Sx,int Sy // Sizes ...
+    ,int in_w,int in_h,int in_d // input blob dimensions
+    ,int w_w,int w_h // weigth height and depth
+    ,int out_w,int out_h,int out_d // output width and height
+    ,int Ky,int Kx 
+    ,int out_depth_start
+    ,int group_id,int group
+    ,int in_delta,int in_depth_start)
+
+    {
+    unsigned int out_x = blockIdx.z*blockDim.z+ threadIdx.z;  
     unsigned int out_y = blockIdx.y*blockDim.y + threadIdx.y;
+    unsigned int out_depth = blockIdx.x*blockDim.x + threadIdx.x+ out_depth_start;
+    
+    if(out_depth < out_d && out_x < out_w && out_y < out_h)
+    {
+        int out_id = calc_blob_id(out_depth,out_y,out_x,out_h,out_w);
+            
+        for(int in_depth=in_depth_start;in_depth<in_depth_start+in_delta;in_depth++)
+            {
+                {
+                    for(int ky=0;ky<Ky;ky++)
+                    {
+                        for(int kx=0;kx<Kx;kx++)
+                        {
+                            int in_y = out_y*Sy+ky;
+                            int in_x = out_x*Sx+kx;
 
-    unsigned int width = gridDim.x*blockDim.x;
-    unsigned int height = gridDim.y*blockDim.y;
-
-    // if(out_x < width && out_y<height)
-    // {
-        int out_id = calc_blob_id(out_depth,out_y,out_x,height,width);
-        data_out[out_id] = 5;    
-    //}
+                            int weigth_y = in_depth-(group_id*(in_d/group));
+                            int weight_x = ky*Kx + kx;
+                            
+                            int weight_id = calc_blob_id(out_depth,weigth_y,weight_x,w_h,w_w);
+                            int in_id = calc_blob_id(in_depth,in_y,in_x,in_h,in_w);
+            
+                            data_out[out_id] += data_weight[weight_id] * data_in[in_id]; 
+                        }
+                    }
+                }
+        }
+    }
 }
+
+
 
 
 
 void convolve_gpu(BLOB* in,BLOB* out,BLOB* w,int Kx,int Ky, conv_param_t* conv_param)
 {
-    int numBlocksX=4;
-    int numBlocksY=4;
 
-    int threadsPerBlockX=out->w/numBlocksX+1;///numBlocksX;  //NOTE: this should have remainder==0 for this code!!
-    int threadsPerBlockY=out->h/numBlocksY+1;//numBlocksY;  //NOTE: this should have remainder==0 for this code!!
-
-    printf("Width : %i ",out->w);
-    printf(", Height : %i \n",out->h);
-
-    float* in_data;
-    float* out_data;
     
+
+  
+  //  printf("Width : %i ",out->w);
+  //  printf(", Height : %i ",out->h);
+
+    int in_delta = in->d/conv_param->group;//Depth of input divided by number of groups. 
+    int out_delta = out->d/conv_param->group;//Depth of output divided by number of groups. 
+    
+  
+    float* in_data;
+    float* out_data;    
     float* w_data;
     
     blob2gpu(in_data, in);
@@ -191,36 +271,61 @@ void convolve_gpu(BLOB* in,BLOB* out,BLOB* w,int Kx,int Ky, conv_param_t* conv_p
     blob2gpu(w_data, w);
     blob_dims *gpu_blob_dim_arr = get_gpu_blob_dims(in,w,out);
     
+  
 
-    dim3 grid( numBlocksX, numBlocksY, 1 );             // numBlocksX x numBlocksY ( x 1)
-    dim3 block(threadsPerBlockX, threadsPerBlockY, 1);  // threadsPerBlockX x threadsPerBlockY x 3
+    int numBlocksX=16;
+    int numBlocksY=8;
+    int numBlocksZ=8;
+  
+
+    int threadsPerBlockX = get_next_pow2(out_delta/numBlocksX+1);
+    int threadsPerBlockY=get_next_pow2(out->h/numBlocksY+1);
+    int threadsPerBlockZ=get_next_pow2(out->w/numBlocksZ+1);
+
+    //printf(", out_delta : %i \n",out_delta);
+
+
+
+    if(out_delta == 1)
+    {
+        numBlocksX = 1;
+        threadsPerBlockX = 1;
+    }
+    if(out_delta == 96 && out->w == 112)
+    {
+        return convolve_cpu(in,out,w,Kx,Ky, conv_param);
+
+    }
     
+    dim3 grid( numBlocksX,numBlocksY, numBlocksZ );             // numBlocksX x numBlocksY ( x 1)
+    dim3 block(threadsPerBlockX, threadsPerBlockY, threadsPerBlockZ);  // threadsPerBlockX x threadsPerBlockY x 3
+    
+   // dim3 grid( 4, 4, 8 );             // numBlocksX x numBlocksY ( x 1)
+   // dim3 block(4, 4, 8);  // threadsPerBlockX x threadsPerBlockY x 3
+
+   // printf("GRID : (x : %i) (y : % i) (z : %i) , ",numBlocksX,numBlocksY,numBlocksZ);
+   // printf("BLOCK : (x : %i) (y : % i) (z : %i) \n",threadsPerBlockX,threadsPerBlockY,threadsPerBlockZ);
 
     for(int group_id=0;group_id<conv_param->group;group_id++)
     {
-    int delta = (out->d/conv_param->group);//Depth of output divided by number of groups. 
-    int output_starting_depth = group_id*delta;
-    for(int out_depth=output_starting_depth;out_depth< output_starting_depth + delta;out_depth++)
-        {
-        int delta = (in->d/conv_param->group);//Depth of input divided by number of groups. 
-        int input_starting_depth = group_id*delta;
-        for(int in_depth=input_starting_depth;in_depth<input_starting_depth+delta;in_depth++)
-            {
 //                out_test<<<grid,block>>>(out_data,out_depth,gpu_blob_dim_arr);
+        int out_depth_start = group_id*out_delta;
+        int in_depth_start = group_id * in_delta;
 
                 //printf("OutDepth : %i \n",out_depth );
-                gpu_device_convolve<<<grid,block>>>(
-                      in_data,w_data,out_data
-                     ,conv_param->Sx,conv_param->Sy
-                     ,in->w,in->h,in->d
-                     ,w->w,w->h
-                     ,out->w,out->h
-                     ,Ky,Kx
-                     ,in_depth,out_depth
-                     ,group_id,conv_param->group);
-            }
-        }
-    }          
+        gpu_device_convolve_naive<<<grid,block>>>(
+                in_data,w_data,out_data
+                ,conv_param->Sx,conv_param->Sy
+                ,in->w,in->h,in->d
+                ,w->w,w->h
+                ,out->w,out->h,out->d
+                ,Ky,Kx
+                ,out_depth_start
+                ,group_id,conv_param->group
+                ,in_delta,in_depth_start);
+    }
+        
+              
 
     cudaFree(gpu_blob_dim_arr);
      
@@ -229,9 +334,8 @@ void convolve_gpu(BLOB* in,BLOB* out,BLOB* w,int Kx,int Ky, conv_param_t* conv_p
     // gpu2blob(w,w_data);
     // cudaFree(in_data);
     cudaFree(out_data);
+
     // cudaFree(w_data);
-//    printf("test_first : %f \n",out->data[0]);
-//    printf("test_last : %f \n",out->data[last_id]);
     // cudaCheckError();
     // cudaCheckError(cudaFree(out_data));
     // cudaCheckError(cudaFree(w_data));
@@ -242,41 +346,7 @@ void convolve_gpu(BLOB* in,BLOB* out,BLOB* w,int Kx,int Ky, conv_param_t* conv_p
 
 
 
-void convolve_cpu(BLOB* in,BLOB* out,BLOB* w,int Kx,int Ky, conv_param_t* conv_param)
-{
-    for(int group_id=0;group_id<conv_param->group;group_id++)
-            {
-            int delta = (out->d/conv_param->group);//Depth of output divided by number of groups. 
-            int output_starting_depth = group_id*delta;
-            for(int out_depth=output_starting_depth;out_depth< output_starting_depth + delta;out_depth++)
-                {
-                int delta = (in->d/conv_param->group);//Depth of input divided by number of groups. 
-                int input_starting_depth = group_id*delta;
-                for(int in_depth=input_starting_depth;in_depth<input_starting_depth+delta;in_depth++)
-                    {
-                    for(int out_y=0;out_y<out->h;out_y++)
-                        for(int out_x=0;out_x<out->w;out_x++)
-                            for(int ky=0;ky<Ky;ky++)
-                                for(int kx=0;kx<Kx;kx++)
-                                {
-                                    int in_y = out_y*conv_param->Sy+ky;
-                                    int in_x = out_x*conv_param->Sx+kx;
 
-                                    int weigth_y = in_depth-(group_id*(in->d/conv_param->group));
-                                    int weigth_x = ky*Kx + kx;
-
-                                    float input = blob_data(in, in_depth, in_y,in_x);
-                                    float weight = blob_data(w, out_depth, weigth_y, weigth_x);
-                                    out->data[cpu_calc_blob_id(out_depth,out_y,out_x, out->h,out->w)] += input*weight;
-                                    
-//                                    blob_data(out,out_depth,out_y,out_x)+= input*weight; 
-                                }
-                    }
-                }
-            }          
-
-
-}
 
 BLOB* initialize_outputBlob(conv_param_t* conv_param,int height,int width)
 {
@@ -321,16 +391,19 @@ void CompareBlobs(BLOB * blob,BLOB * blob2)
         {
             for(int x = 0; x<blob->w;x++)
             {
-                
-                if(blob_data(blob,z,y,x) != blob_data(blob2,z,y,x))
+                float delta = blob_data(blob,z,y,x) - blob_data(blob2,z,y,x) > 0.01;
+                if(delta > 0.01 || delta < -0.01)
                 {
                     printf("%lf Not Equal to %lf at x : %i , y : %i , z : %i \n"  ,blob_data(blob,z,y,x),blob_data(blob2,z,y,x),x,y,z);   
-                    x = y = z=10000000000;
+                    
+                    x = y = z=100000;
                     break;
+                
                 }
             }   
         }   
     }
+
 }
 
 
@@ -353,15 +426,15 @@ BLOB* convolution(BLOB* input, conv_param_t* conv_param){
     int width =(int)floor(((float)in->w - (float)Kx)/(float)conv_param->Sx)+1;
     
     BLOB* out = initialize_outputBlob(conv_param,height,width);
-  //  BLOB* out2 = initialize_outputBlob(conv_param,height,width);
+    BLOB* out2 = initialize_outputBlob(conv_param,height,width);
     
     //load weightsint input_id = 
     BLOB* w = load_weights(in, conv_param);
     //convolve_gpu(in,out,w,Kx,Ky,conv_param);
 
-    //convolve_cpu(in,out,w,Kx,Ky,conv_param);
+//    convolve_cpu(in,out2,w,Kx,Ky,conv_param);
     convolve_gpu(in,out,w,Kx,Ky,conv_param);
-    //CompareBlobs(out,out2);
+//    CompareBlobs(out,out2);
 
 //    printArrays(out->data,out2->data);
 
